@@ -8,182 +8,208 @@
 #include <memory>
 #include <queue>
 #include <tuple>
-#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
-#include "Integer.h"
-#include "Iterator.h"
 #include "Chain.h"
 #include "Complex.h"
+#include "Integer.h"
+#include "Iterator.h"
 #include "MorseMatching.h"
 
 class MorseComplex : public Complex {
-public:
-
-
+ public:
   /// MorseComplex constructor
-  MorseComplex ( std::shared_ptr<Complex> arg_base, 
-                 std::shared_ptr<MorseMatching> arg_matching ) 
-               : base_(arg_base), matching_(arg_matching) {
+  MorseComplex(std::shared_ptr<Complex> arg_base,
+               std::shared_ptr<MorseMatching> arg_matching)
+      : base_(arg_base), matching_(arg_matching) {
+    auto begin_reindex = matching_->critical_cells();
 
-    auto begin_reindex = matching_ -> critical_cells();
+    // Cell iterators
     begin_.clear();
-    for ( auto i : begin_reindex.first ) {
+    for (auto i : begin_reindex.first) {
       begin_.push_back(Iterator(i));
     }
-    dim_ = begin_.size()-2;
-    auto const& reindex = begin_reindex.second;
+    dim_ = begin_.size() - 2;
 
-    for ( auto pair : reindex ) {
+    // Include and project
+    auto const& reindex = begin_reindex.second;
+    for (auto pair : reindex) {
       include_.push_back(pair.first);
     }
-    project_ = std::unordered_map<Integer, Integer>(reindex.begin(), reindex.end());
+    project_ =
+        std::unordered_map<Integer, Integer>(reindex.begin(), reindex.end());
 
     // boundary
     bd_.resize(size());
-    //std::cout << "MorseComplex. There are " << size() << " cells.\n";
-    //std::cout << "MorseComplex. Computing boundary.\n";
-    for ( auto ace : *this ) {
-      //std::cout << "  Computing boundary for cell ace ==" << ace << "\n";
-      //std::cout << "     include({ace}) = " << include({ace}) << "\n";
+    for (auto ace : *this) {
       bd_[ace] = lower(base()->boundary(include({ace})));
-      //std::cout << "     bd(ace) = " << bd_[ace] << "\n";
     }
 
-    //std::cout << "MorseComplex. Computing coboundary.\n";
     // coboundary
     cbd_.resize(size());
-    for ( auto ace : *this ) {
-      for ( auto bd_cell : bd_[ace] ) cbd_[bd_cell] += ace;
+    for (auto ace : *this) {
+      for (auto bd_cell : bd_[ace]) cbd_[bd_cell] += ace;
     }
-
   }
 
-  /// delegating constructor
-  MorseComplex ( std::shared_ptr<Complex> arg_base ) 
-               : MorseComplex(arg_base, MorseMatching::compute_matching(arg_base)) {
-
-  }
+  /// delegating constructor for unmatched complexes
+  MorseComplex(std::shared_ptr<Complex> arg_base)
+      : MorseComplex(arg_base, MorseMatching::compute_matching(arg_base)) {}
 
   /// boundary
-  virtual Chain
-  boundary ( Chain const& c ) const final {
+  virtual Chain boundary(Chain const& c) const final {
     Chain result;
-    for ( auto x : c ) result += bd_[x];
+    for (auto x : c) result += bd_[x];
     return result;
   }
 
   /// coboundary
-  virtual Chain
-  coboundary ( Chain const& c ) const final {
+  virtual Chain coboundary(Chain const& c) const final {
     Chain result;
-    for ( auto x : c ) result += cbd_[x];
+    for (auto x : c) result += cbd_[x];
     return result;
   }
 
   /// column
   ///   Apply "callback" method to every element in ith column of
   ///   boundary matrix
-  virtual void
-  column ( Integer i, std::function<void(Integer)> const& callback) const final {
-    for ( auto x : bd_[i] ) callback(x);
+  virtual void column(
+      Integer i, std::function<void(Integer)> const& callback) const final {
+    for (auto x : bd_[i]) callback(x);
   };
 
   /// row
   ///   Apply "callback" method to every element in ith row of
   ///   boundary matrix
-  virtual void
-  row ( Integer i, std::function<void(Integer)> const& callback) const final {
-    for ( auto x : cbd_[i] ) callback(x);
+  virtual void row(Integer i,
+                   std::function<void(Integer)> const& callback) const final {
+    for (auto x : cbd_[i]) callback(x);
   };
-  
 
   // Feature
 
   /// base
-  std::shared_ptr<Complex>
-  base ( void ) const {
-    return base_;
-  }
+  std::shared_ptr<Complex> base(void) const { return base_; }
 
   /// matching
-  std::shared_ptr<MorseMatching>
-  matching ( void ) const {
-    return matching_;
-  }
+  std::shared_ptr<MorseMatching> matching(void) const { return matching_; }
 
   /// include
-  Chain
-  include ( Chain const& c ) {
+  Chain include(Chain const& c) {
     Chain result;
-    for ( auto x : c ) result += include_[x];
+    for (auto x : c) result += include_[x];
     return result;
   }
 
   /// project
-  Chain
-  project ( Chain const& c ) {
+  Chain project(Chain const& c) {
     Chain result;
-    for ( auto x : c ) { 
-      if ( project_.count(x) > 0 ) result += project_[x];
+    for (auto x : c) {
+      if (project_.count(x) > 0) result += project_[x];
     }
     return result;
   }
 
   /// lift
-  Chain
-  lift ( Chain const& c ) {
-    Chain included = include ( c );
-    Chain canonical; Chain gamma;
-    std::tie(canonical, gamma) = flow ( base () -> boundary ( included ) );
+  Chain lift(Chain const& c) {
+    Chain included = include(c);
+    Chain canonical;
+    Chain gamma;
+    std::tie(canonical, gamma) = flow(base()->boundary(included));
     return included + gamma;
   }
 
   /// lower
-  Chain
-  lower ( Chain const& c ) {
-    Chain canonical; Chain gamma;
-    std::tie(canonical, gamma) = flow ( c );
+  Chain lower(Chain const& c) {
+    Chain canonical;
+    Chain gamma;
+    std::tie(canonical, gamma) = flow(c);
     return project(canonical);
   }
 
   /// flow
-  std::pair<Chain, Chain>
-  flow ( Chain const& input ) const {
-    // std::cout << "MorseComplex::flow\n";
+  std::pair<Chain, Chain> flow(Chain const& input) const {
     Chain canonical, gamma;
-    //std::unordered_set<Integer> queens;
-    auto compare = [&](Integer x, Integer y){return matching_ -> priority(x) < matching_ -> priority(y);};
-    std::priority_queue<Integer, std::vector<Integer>, decltype(compare)> priority ( compare );
-    auto isQueen = [&](Integer x){ return x < matching_ -> mate(x); };
+    auto isQueen = [&](Integer x) { return x < matching_->mate(x); };
+
+    // Partial ordering on queens handled by priority queue
+    auto compare = [&](Integer x, Integer y) {
+      return matching_->priority(x) < matching_->priority(y);
+    };
+    std::priority_queue<Integer, std::vector<Integer>, decltype(compare)>
+        priority(compare);
 
     auto process = [&](Integer x) {
-      if ( isQueen(x) ) { //&& queens.count(x) == 0) {
-        //queens . insert (x);
-        priority . push (x);
-      }
+      if (isQueen(x)) priority.push(x);
       canonical += x;
     };
 
-    for ( auto x : input ) process(x);
+    for (auto x : input) process(x);
 
-    while ( not priority . empty () ) {
-      // std::cout << "  Current chain = " << canonical << "\n";
-      auto queen = priority.top(); priority.pop();
-      if ( canonical . count ( queen ) == 0 ) continue;
-      auto king = matching_ -> mate ( queen );
+    while (not priority.empty()) {
+      auto queen = priority.top();
+      priority.pop();
+      if (canonical.count(queen) == 0) continue;
+      auto king = matching_->mate(queen);
       gamma += king;
-      // std::cout << "    Reducing queen " << queen << " with king " << king << " and priority " << matching_->priority(queen) << "\n";
-      // std::cout << "       The boundary of king is " << base()->boundary({king})<<"\n";
-      base() -> column(king, process);
-      //process( base()->boundary({king}) );
+      base()->column(king, process);
     }
-    // std::cout << "  COMPLETE chain = " << canonical << "\n";
 
     return {canonical, gamma};
   }
 
-private:
+  /// colift
+  Chain colift(Chain const& c) {
+    Chain included = include(c);
+    Chain cocanonical;
+    Chain cogamma;
+    std::tie(cocanonical, cogamma) = coflow(base()->coboundary(included));
+    return included + cogamma;
+  }
+
+  /// colower
+  Chain colower(Chain const& c) {
+    Chain cocanonical;
+    Chain cogamma;
+    std::tie(cocanonical, cogamma) = coflow(c);
+    return project(cocanonical);
+  }
+
+  /// coflow
+  ///   Dualization of flow exchanges role of kings and queens for their
+  ///   cocell counterparts.
+  std::pair<Chain, Chain> coflow(Chain const& input) const {
+    Chain cocanonical, cogamma;
+    auto isKing = [&](Integer x) { return x > matching_->mate(x); };
+
+    // Partial ordering on kings handled by priority queue
+    auto compare = [&](Integer x, Integer y) {
+      return matching_->priority(x) > matching_->priority(y);
+    };
+    std::priority_queue<Integer, std::vector<Integer>, decltype(compare)>
+        priority(compare);
+
+    auto process = [&](Integer x) {
+      if (isKing(x)) priority.push(x);
+      cocanonical += x;
+    };
+
+    for (auto x : input) process(x);
+
+    while (not priority.empty()) {
+      auto king = priority.top();
+      priority.pop();
+      if (cocanonical.count(king) == 0) continue;
+      auto queen = matching_->mate(king);
+      cogamma += queen;
+      base()->row(queen, process);
+    }
+
+    return {cocanonical, cogamma};
+  }
+
+ private:
   std::shared_ptr<Complex> base_;
   std::shared_ptr<MorseMatching> matching_;
   std::vector<Integer> include_;
@@ -192,23 +218,25 @@ private:
   std::vector<Chain> cbd_;
 };
 
-
 /// Python Bindings
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-inline void
-MorseComplexBinding(py::module &m) {
-  py::class_<MorseComplex, std::shared_ptr<MorseComplex>, Complex>(m, "MorseComplex")
-    .def(py::init<std::shared_ptr<Complex>, std::shared_ptr<MorseMatching>>())
-    .def(py::init<std::shared_ptr<Complex>>())
-    .def("include", &MorseComplex::include)
-    .def("project", &MorseComplex::project)
-    .def("lift", &MorseComplex::lift)
-    .def("lower", &MorseComplex::lower)
-    .def("flow", &MorseComplex::flow)
-    .def("base", &MorseComplex::base)
-    .def("matching", &MorseComplex::matching);
+inline void MorseComplexBinding(py::module& m) {
+  py::class_<MorseComplex, std::shared_ptr<MorseComplex>, Complex>(
+      m, "MorseComplex")
+      .def(py::init<std::shared_ptr<Complex>, std::shared_ptr<MorseMatching>>())
+      .def(py::init<std::shared_ptr<Complex>>())
+      .def("include", &MorseComplex::include)
+      .def("project", &MorseComplex::project)
+      .def("lift", &MorseComplex::lift)
+      .def("lower", &MorseComplex::lower)
+      .def("flow", &MorseComplex::flow)
+      .def("colift", &MorseComplex::colift)
+      .def("colower", &MorseComplex::colower)
+      .def("coflow", &MorseComplex::coflow)
+      .def("base", &MorseComplex::base)
+      .def("matching", &MorseComplex::matching);
 }
