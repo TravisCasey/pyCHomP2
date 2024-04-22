@@ -43,3 +43,7 @@ src/*.egg-info
 *.exe
 *.out
 *.app
+
+# Benchmarks
+examples/plots/*
+examples/reports/*
