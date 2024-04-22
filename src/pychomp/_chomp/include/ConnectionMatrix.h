@@ -6,39 +6,42 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
-#include "Integer.h"
-#include "Chain.h"
-#include "Complex.h"
-#include "MorseComplex.h"
-#include "MorseMatching.h"
 #include "GradedComplex.h"
+#include "Integer.h"
 #include "MorseGradedComplex.h"
 
 /// ConnectionMatrix
-inline
-std::shared_ptr<GradedComplex> 
-ConnectionMatrix ( std::shared_ptr<GradedComplex> base ) {
+///   Computes the minimal morse complex obtained through a series of matchings.
+///   Setting `truncate` flag disables matching of cells with grade exceeding
+///   `max_grade`.
+inline std::shared_ptr<GradedComplex> ConnectionMatrix(
+    std::shared_ptr<GradedComplex> base, bool truncate = false,
+    Integer max_grade = 0) {
   std::shared_ptr<GradedComplex> next = base;
   do {
     base = next;
-    next = MorseGradedComplex(base);
-  } while ( next -> complex() -> size() != base -> complex() -> size() );
+    next = MorseGradedComplex(base, truncate, max_grade);
+  } while (next->complex()->size() != base->complex()->size());
   return base;
 }
 
-/// ConnectionMatrix
-inline
-std::vector<std::shared_ptr<GradedComplex>>
-ConnectionMatrixTower ( std::shared_ptr<GradedComplex> base ) {
+/// ConnectionMatrixTower
+///   Computes the minimal morse complex obtained through a series of matchings.
+///   Returns the entire tower of intermediate complexes as a vector.
+///   Setting `truncate` flag disables matching of cells with grade exceeding
+///   `max_grade`.
+inline std::vector<std::shared_ptr<GradedComplex>> ConnectionMatrixTower(
+    std::shared_ptr<GradedComplex> base, bool truncate = false,
+    Integer max_grade = 0) {
   std::vector<std::shared_ptr<GradedComplex>> tower;
   std::shared_ptr<GradedComplex> next = base;
-  std::shared_ptr<GradedComplex> last;
   do {
     tower.push_back(next);
-    last = tower.back();
-    next = MorseGradedComplex(last);
-  } while ( next -> complex() -> size() != last -> complex() -> size() );
+    base = next;
+    next = MorseGradedComplex(base, truncate, max_grade);
+  } while (next->complex()->size() != base->complex()->size());
   return tower;
 }
 
@@ -48,9 +51,9 @@ ConnectionMatrixTower ( std::shared_ptr<GradedComplex> base ) {
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-inline
-void ConnectionMatrixBinding(py::module &m) {
-  m.def("ConnectionMatrix", &ConnectionMatrix);
-  m.def("ConnectionMatrixTower", &ConnectionMatrixTower);
-
+inline void ConnectionMatrixBinding(py::module &m) {
+  m.def("ConnectionMatrix", &ConnectionMatrix, py::arg("base"),
+        py::arg("truncate") = false, py::arg("max_grade") = 0);
+  m.def("ConnectionMatrixTower", &ConnectionMatrixTower, py::arg("base"),
+        py::arg("truncate") = false, py::arg("max_grade") = 0);
 }
