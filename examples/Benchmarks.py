@@ -138,6 +138,7 @@ fig.suptitle("pyCHomP Benchmarks")
 
 # Report file configuration
 if report_filename is not None:
+    os.makedirs("examples/reports", exist_ok=True)
     path = f"examples/reports/{report_filename}"
     if os.path.exists(path):
         os.remove(path)
@@ -553,6 +554,7 @@ axs[2,3].legend()
 
 # Save plots
 if plot_filename is not None:
+    os.makedirs("examples/plots", exist_ok=True)
     fig.savefig(f"examples/plots/{plot_filename}")
 
 if f is not None:
