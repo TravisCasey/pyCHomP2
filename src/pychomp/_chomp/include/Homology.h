@@ -7,21 +7,20 @@
 
 #include <memory>
 
-#include "Integer.h"
 #include "Chain.h"
 #include "Complex.h"
+#include "Integer.h"
 #include "MorseComplex.h"
 #include "MorseMatching.h"
 
 /// Homology
-inline
-std::shared_ptr<Complex> 
-Homology ( std::shared_ptr<Complex> base ) {
+inline std::shared_ptr<Complex> Homology(std::shared_ptr<Complex> base,
+                                         bool verbose = false) {
   std::shared_ptr<Complex> next = base;
   do {
     base = next;
-    next.reset( new MorseComplex ( base ) );
-  } while ( next -> size() != base -> size() );
+    next.reset(new MorseComplex(base));
+  } while (next->size() != base->size());
   return base;
 }
 
@@ -31,7 +30,6 @@ Homology ( std::shared_ptr<Complex> base ) {
 #include <pybind11/stl.h>
 namespace py = pybind11;
 
-inline
-void HomologyBinding(py::module &m) {
-  m.def("Homology", &Homology);
+inline void HomologyBinding(py::module &m) {
+  m.def("Homology", &Homology, py::arg("base"), py::arg("verbose") = false);
 }

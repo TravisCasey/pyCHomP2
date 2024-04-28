@@ -54,8 +54,9 @@ class MorseComplex : public Complex {
   }
 
   /// delegating constructor for unmatched complexes
-  MorseComplex(std::shared_ptr<Complex> arg_base)
-      : MorseComplex(arg_base, MorseMatching::compute_matching(arg_base)) {}
+  MorseComplex(std::shared_ptr<Complex> arg_base, bool verbose = false)
+      : MorseComplex(arg_base,
+                     MorseMatching::compute_matching(arg_base, verbose)) {}
 
   /// boundary
   virtual Chain boundary(Chain const& c) const final {
@@ -227,8 +228,10 @@ namespace py = pybind11;
 inline void MorseComplexBinding(py::module& m) {
   py::class_<MorseComplex, std::shared_ptr<MorseComplex>, Complex>(
       m, "MorseComplex")
-      .def(py::init<std::shared_ptr<Complex>, std::shared_ptr<MorseMatching>>())
-      .def(py::init<std::shared_ptr<Complex>>())
+      .def(py::init<std::shared_ptr<Complex>, std::shared_ptr<MorseMatching>>(),
+           py::arg("base"), py::arg("matching"))
+      .def(py::init<std::shared_ptr<Complex>, bool>(), py::arg("base"),
+           py::arg("verbose") = false)
       .def("include", &MorseComplex::include)
       .def("project", &MorseComplex::project)
       .def("lift", &MorseComplex::lift)

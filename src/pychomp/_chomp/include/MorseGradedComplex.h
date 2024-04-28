@@ -35,10 +35,10 @@ inline std::shared_ptr<GradedComplex> MorseGradedComplex(
 /// MorseGradedComplex
 inline std::shared_ptr<GradedComplex> MorseGradedComplex(
     std::shared_ptr<GradedComplex> base_graded_complex, bool truncate = false,
-    Integer max_grade = 0) {
+    Integer max_grade = 0, bool verbose = false) {
   // Compute matching first, then pass to above
   std::shared_ptr<MorseMatching> matching(MorseMatching::compute_matching(
-      base_graded_complex, truncate, max_grade));
+      base_graded_complex, truncate, max_grade, verbose));
 
   return MorseGradedComplex(base_graded_complex, matching);
 }
@@ -56,7 +56,8 @@ inline void MorseGradedComplexBinding(py::module &m) {
             MorseGradedComplex);
   m.def("MorseGradedComplex",
         (std::shared_ptr<GradedComplex>(*)(std::shared_ptr<GradedComplex>, bool,
-                                           Integer)) &
+                                           Integer, bool)) &
             MorseGradedComplex,
-        py::arg("base"), py::arg("truncate") = false, py::arg("max_grade") = 0);
+        py::arg("base"), py::arg("truncate") = false, py::arg("max_grade") = 0,
+        py::arg("verbose") = false);
 }

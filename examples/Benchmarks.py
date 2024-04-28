@@ -30,12 +30,15 @@ report_filename: str, optional
     directory. If not set, times will not be saved.
 verbose: bool
     Whether to print to command line.
+progress: bool
+    Whether to print progress bars for homology computations
 """
 cutoff_time = 20.0
 iterations = 20
 plot_filename = "benchmark.png"
 report_filename = "benchmark.txt"
 verbose = True
+progress = False
 
 
 def benchmark(
@@ -181,7 +184,7 @@ def CubicalSnHomology_instantiate(n, k, length, **kwargs):
     gradX = GradedComplex(X, include_grading)
 
 def CubicalSnHomology_run(n, k, truncate=False, **kwargs):
-    cm = ConnectionMatrix(gradX, truncate=truncate, max_grade=0)
+    cm = ConnectionMatrix(gradX, truncate=truncate, max_grade=0, verbose=progress)
     result = [0] * (k + 1)
     result[0] = 1
     result[n] = 1
@@ -434,7 +437,7 @@ def FullCubicalS1Homology_instantiate(k, length, **kwargs):
     gradX = GradedComplex(X, grading)
 
 def FullCubicalS1Homology_run(k, truncate=False, **kwargs):
-    cm = ConnectionMatrix(gradX, truncate=truncate, max_grade=0)
+    cm = ConnectionMatrix(gradX, truncate=truncate, max_grade=0, verbose=progress)
     result = [0] * (k + 1)
     result[0] = 1
     result[1] = 1

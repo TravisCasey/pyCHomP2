@@ -18,11 +18,11 @@
 ///   `max_grade`.
 inline std::shared_ptr<GradedComplex> ConnectionMatrix(
     std::shared_ptr<GradedComplex> base, bool truncate = false,
-    Integer max_grade = 0) {
+    Integer max_grade = 0, bool verbose = false) {
   std::shared_ptr<GradedComplex> next = base;
   do {
     base = next;
-    next = MorseGradedComplex(base, truncate, max_grade);
+    next = MorseGradedComplex(base, truncate, max_grade, verbose);
   } while (next->complex()->size() != base->complex()->size());
   return base;
 }
@@ -34,13 +34,13 @@ inline std::shared_ptr<GradedComplex> ConnectionMatrix(
 ///   `max_grade`.
 inline std::vector<std::shared_ptr<GradedComplex>> ConnectionMatrixTower(
     std::shared_ptr<GradedComplex> base, bool truncate = false,
-    Integer max_grade = 0) {
+    Integer max_grade = 0, bool verbose = false) {
   std::vector<std::shared_ptr<GradedComplex>> tower;
   std::shared_ptr<GradedComplex> next = base;
   do {
     tower.push_back(next);
     base = next;
-    next = MorseGradedComplex(base, truncate, max_grade);
+    next = MorseGradedComplex(base, truncate, max_grade, verbose);
   } while (next->complex()->size() != base->complex()->size());
   return tower;
 }
@@ -53,7 +53,9 @@ namespace py = pybind11;
 
 inline void ConnectionMatrixBinding(py::module &m) {
   m.def("ConnectionMatrix", &ConnectionMatrix, py::arg("base"),
-        py::arg("truncate") = false, py::arg("max_grade") = 0);
+        py::arg("truncate") = false, py::arg("max_grade") = 0,
+        py::arg("verbose") = false);
   m.def("ConnectionMatrixTower", &ConnectionMatrixTower, py::arg("base"),
-        py::arg("truncate") = false, py::arg("max_grade") = 0);
+        py::arg("truncate") = false, py::arg("max_grade") = 0,
+        py::arg("verbose") = false);
 }
