@@ -41,6 +41,8 @@ class MorseMatching {
       Integer max_grade, bool verbose);
 
  protected:
+  BeginType begin_;
+  ReindexType reindex_;
   Integer operations_;
   const Integer bar_total_ = 50;
   Integer bar_prev_;

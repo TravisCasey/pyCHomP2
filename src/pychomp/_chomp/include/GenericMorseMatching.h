@@ -195,8 +195,6 @@ class GenericMorseMatching : public MorseMatching {
  private:
   std::vector<Integer> mate_;
   std::vector<Integer> priority_;
-  BeginType begin_;
-  ReindexType reindex_;
 };
 
 /// Python Bindings

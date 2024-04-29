@@ -89,8 +89,6 @@ class CubicalMorseMatching : public MorseMatching {
   Integer type_size_;
   std::shared_ptr<GradedComplex> graded_complex_;
   std::shared_ptr<CubicalComplex> complex_;
-  BeginType begin_;
-  ReindexType reindex_;
 
   Integer mate_(Integer cell, Integer D) const {
     if (complex_->rightfringe(cell)) return cell;  // Not strictly necessary
