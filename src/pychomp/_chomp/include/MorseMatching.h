@@ -51,7 +51,12 @@ class MorseMatching {
   ///   Before each new progress bar, set bar_prev_ to -1.
   void progress_(Integer processed) {
     // bars to display
-    Integer bars = processed * bar_total_ / operations_;
+    Integer bars;
+    if (operations_ != 0) {
+      bars = processed * bar_total_ / operations_;
+    } else {
+      bars = bar_total_;
+    }
 
     if (bars != bar_prev_) {
       bar_prev_ = bars;

@@ -68,7 +68,7 @@ class CubicalMorseMatching : public MorseMatching {
     }
     begin_[D + 1] = idx;
 
-    if (verbose) {
+    if (verbose && N != 0) {
       std::cout << "Reduced to " << idx << " critical cells, a reduction of ";
       std::cout << (100 - (100 * idx) / N) << "%." << std::endl << std::endl;
     }
