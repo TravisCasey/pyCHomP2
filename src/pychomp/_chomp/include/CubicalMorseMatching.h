@@ -8,6 +8,7 @@
 #include <memory>
 #include <ostream>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 
 #include "GradedComplex.h"
@@ -52,15 +53,39 @@ class CubicalMorseMatching : public MorseMatching {
       num_processed = 0;
     }
 
+    // In matching construction, mates are only found from queens to kings.
+    // Found kings are cached in the prev_kings and next_kings sets.
+    Integer cell_mate;
+    std::unique_ptr<std::unordered_set<Integer>> prev_kings;
+    std::unique_ptr<std::unordered_set<Integer>> next_kings =
+        std::make_unique<std::unordered_set<Integer>>();
+
     Integer idx = 0;
     begin_.resize(D + 2);
     for (Integer d = 0; d <= D; ++d) {
       begin_[d] = idx;
-      for (auto v : (*complex_)(d)) {
-        if (not truncate || graded_complex_->value(v) <= max_grade) {
-          if (!complex_->rightfringe(v) && mate(v) == v) {
+
+      // Transfer ownership of next_kings and initialize empty set
+      prev_kings = std::move(next_kings);
+      next_kings = std::make_unique<std::unordered_set<Integer>>();
+
+      for (Integer v : (*complex_)(d)) {
+        // Discard:
+        //   1. Fringe cells
+        //   2. Cells that are truncated by grade
+        //   3. Kings from previous iteration
+        if (!complex_->rightfringe(v) &&
+            (!truncate || graded_complex_->value(v) <= max_grade) &&
+            !prev_kings->count(v)) {
+          // Find mate
+          cell_mate = mate_(v, D, true);
+          if (cell_mate == v) {
+            // Ace
             reindex_.push_back({v, idx});
             ++idx;
+          } else {
+            // Queen - cahce result for next iteration
+            next_kings->insert(cell_mate);
           }
         }
         if (verbose) progress_(++num_processed);
@@ -90,22 +115,29 @@ class CubicalMorseMatching : public MorseMatching {
   std::shared_ptr<GradedComplex> graded_complex_;
   std::shared_ptr<CubicalComplex> complex_;
 
-  Integer mate_(Integer cell, Integer D) const {
-    if (complex_->rightfringe(cell)) return cell;  // Not strictly necessary
+  Integer mate_(Integer cell, Integer D, bool initial = false) const {
+    // The initial option is set to true when called within constructor.
+    // This only proposes mates of higher dimensions (i.e. kings).
+
+    if (complex_->rightfringe(cell)) return cell;
     Integer shape = complex_->cell_shape(cell);
-    Integer position = complex_->cell_pos(cell);
+    Integer type_offset;
+    Integer proposed_mate;
 
     for (Integer d = 0, bit = 1; d < D; ++d, bit <<= 1L) {
+      // If initial only search for kings.
+      if (initial && shape & bit) continue;
+
       Integer type_offset = type_size_ * complex_->TS()[shape ^ bit];
-      Integer proposed_mate = position + type_offset;
+      Integer proposed_mate = complex_->cell_pos(cell) + type_offset;
 
       // A proposed mate must:
       //   1. Be in the same grade
       //   2. Not be a fringe cell
-      //   3. Not already be matched with another cell
-      if (graded_complex_->value(proposed_mate) ==
+      //   3. Not be matched with another cell
+      if (!complex_->rightfringe(proposed_mate) &&
+          graded_complex_->value(proposed_mate) ==
               graded_complex_->value(cell) &&
-          !complex_->rightfringe(proposed_mate) &&
           proposed_mate == mate_(proposed_mate, d)) {
         return proposed_mate;  // found mate
       }
