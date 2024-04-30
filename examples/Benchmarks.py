@@ -38,7 +38,7 @@ iterations = 20
 plot_filename = "benchmark.png"
 report_filename = "benchmark.txt"
 verbose = True
-progress = False
+progress = True
 
 
 def benchmark(
@@ -183,18 +183,19 @@ def CubicalSnHomology_instantiate(n, k, length, **kwargs):
     global gradX
     gradX = GradedComplex(X, include_grading)
 
-def CubicalSnHomology_run(n, k, truncate=False, **kwargs):
-    cm = ConnectionMatrix(gradX, truncate=truncate, max_grade=0, verbose=progress)
-    result = [0] * (k + 1)
+def CubicalSnHomology_run(n, k, truncate=False, limit=False, **kwargs):
+    cm = ConnectionMatrix(gradX, match_dim = (n + 1 if limit else -1),
+                          truncate=truncate, max_grade=0, verbose=progress)
+    result = [0] * (n + 2) if limit else [0] * (k + 1)
     result[0] = 1
     result[n] = 1
     assert cm.count()[0] == result
 
-def CubicalSnHomology(n, k, length, truncate, **kwargs):
+def CubicalSnHomology(n, k, length, truncate, limit, **kwargs):
     CubicalSnHomology_instantiate(n, k, length)
-    CubicalSnHomology_run(n, k, truncate=truncate)
+    CubicalSnHomology_run(n, k, truncate=truncate, limit=limit)
 
-def CubicalSnHomology_cells(n, k, length, **kwargs):
+def CubicalSnHomology_cells(n, k, length, limit, **kwargs):
     X = CubicalComplex([length] * k)
 
     def grading(cell):
@@ -211,21 +212,36 @@ def CubicalSnHomology_cells(n, k, length, **kwargs):
     total = 0
     Sn = 0
     for cell in X:
-        if X.rightfringe(cell): continue
-        if grading(cell) == 0: Sn += 1
+        if limit:
+            if X.cell_dim(cell) > n + 1:
+                continue
+        if X.rightfringe(cell):
+            continue
+        if grading(cell) == 0:
+            Sn += 1
         total += 1
     return (Sn, total)
 
 
-k = 8
+k = 9
 length = 3
 
 CubicalSnHomology_method_configs = {
     "Default": {
-        "truncate": False
+        "truncate": False,
+        "limit": False
     },
     "Truncated": {
-        "truncate": True
+        "truncate": True,
+        "limit": False
+    },
+    "Dimension-Limited": {
+        "truncate": False,
+        "limit": True
+    },
+    "Dimension-Limited and Truncated": {
+        "truncate": True,
+        "limit": True
     }
 }
 
@@ -285,7 +301,8 @@ axs[0,1].legend()
 
 # Calculate cell count and sparsity
 for method, method_config in CubicalSnHomology_method_configs.items():
-    if method in ("Truncated",): continue
+    if method in ("Truncated", "Dimension-Limited and Truncated"):
+        continue
     Sn_cells = []
     sparsity = []
     for run, run_config in CubicalSnHomology_run_configs.items():
@@ -318,15 +335,25 @@ The experiment is run for all dimensions `k` where `k` < `k_max`. S1 is
 made up of `1`-cells and `0`-cells only.
 """
 
-k_max = 10
+k_max = 11
 length = 3
 
 CubicalS1Homology_method_configs = {
     "Default": {
-        "truncate": False
+        "truncate": False,
+        "limit": False
     },
     "Truncated": {
-        "truncate": True
+        "truncate": True,
+        "limit": False
+    },
+    "Dimension-Limited": {
+        "truncate": False,
+        "limit": True
+    },
+    "Dimension-Limited and Truncated": {
+        "truncate": True,
+        "limit": True
     }
 }
 
@@ -387,7 +414,8 @@ axs[1,1].legend()
 
 # Calculate cell count and sparsity
 for method, method_config in CubicalS1Homology_method_configs.items():
-    if method in ("Truncated",): continue
+    if method in ("Truncated", "Dimension-Limited and Truncated"):
+        continue
     S1_cells = []
     sparsity = []
     for run, run_config in CubicalS1Homology_run_configs.items():
@@ -466,7 +494,7 @@ def FullCubicalS1Homology_cells(k, length, **kwargs):
     return (S1_cells, total)
 
 
-k_max = 8
+k_max = 9
 length = 4
 
 FullCubicalS1Homology_method_configs = {

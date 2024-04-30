@@ -21,18 +21,21 @@ class CubicalMorseMatching : public MorseMatching {
   ///   Delegating constructor for non-graded complex
   ///   Assigns trivial grading (all 0)
   CubicalMorseMatching(std::shared_ptr<CubicalComplex> complex_ptr,
-                       bool verbose = false)
+                       Integer match_dim = -1, bool verbose = false)
       : CubicalMorseMatching(std::make_shared<GradedComplex>(
                                  complex_ptr, [](Integer i) { return 0; }),
-                             verbose) {}
+                             match_dim, false, 0, verbose) {}
 
   /// CubicalMorseMatching
   ///   Computes Morse matching based on hypercube templates.
   ///   Setting `truncate` flag stops matching on cells with grade exceeding
   ///   `max_grade`.
+  ///   Setting match_dim stops matching at specified dimension; homology up to
+  ///   dimension match_dim - 1 will be correct. Default value -1 uses the full
+  ///   complex.
   CubicalMorseMatching(std::shared_ptr<GradedComplex> graded_complex_ptr,
-                       bool truncate = false, Integer max_grade = 0,
-                       bool verbose = false)
+                       Integer match_dim = -1, bool truncate = false,
+                       Integer max_grade = 0, bool verbose = false)
       : graded_complex_(graded_complex_ptr) {
     complex_ =
         std::dynamic_pointer_cast<CubicalComplex>(graded_complex_->complex());
@@ -40,9 +43,16 @@ class CubicalMorseMatching : public MorseMatching {
       throw std::invalid_argument(
           "CubicalMorseMatching must be constructed with a CubicalComplex");
 
+    // If match_dim is invalid (also default value of -1), set D to dimension
+    // of the complex instead.
+    Integer D = (match_dim > 0 && match_dim <= complex_->dimension())
+                    ? match_dim
+                    : complex_->dimension();
+
+    // N is the number of cells of dimension D and below
+    Integer N = *((*complex_)(D).end());
+
     type_size_ = complex_->type_size();
-    Integer N = complex_->size();
-    Integer D = complex_->dimension();
     Integer num_processed;
 
     if (verbose) {
@@ -78,7 +88,7 @@ class CubicalMorseMatching : public MorseMatching {
             (!truncate || graded_complex_->value(v) <= max_grade) &&
             !prev_kings->count(v)) {
           // Find mate
-          cell_mate = mate_(v, D, true);
+          cell_mate = mate_(v, complex_->dimension(), true);
           if (cell_mate == v) {
             // Ace
             reindex_.push_back({v, idx});
@@ -155,11 +165,14 @@ namespace py = pybind11;
 inline void CubicalMorseMatchingBinding(py::module &m) {
   py::class_<CubicalMorseMatching, std::shared_ptr<CubicalMorseMatching>>(
       m, "CubicalMorseMatching")
-      .def(py::init<std::shared_ptr<CubicalComplex>, bool>(), py::arg("base"),
+      .def(py::init<std::shared_ptr<CubicalComplex>, Integer, bool>(),
+           py::arg("base"), py::arg("match_dim") = -1,
            py::arg("verbose") = false)
-      .def(py::init<std::shared_ptr<GradedComplex>, bool, Integer, bool>(),
-           py::arg("base"), py::arg("truncate") = false,
-           py::arg("max_grade") = 0, py::arg("verbose") = false)
+      .def(py::init<std::shared_ptr<GradedComplex>, Integer, bool, Integer,
+                    bool>(),
+           py::arg("base"), py::arg("match_dim") = -1,
+           py::arg("truncate") = false, py::arg("max_grade") = 0,
+           py::arg("verbose") = false)
       .def("mate", &CubicalMorseMatching::mate)
       .def("priority", &CubicalMorseMatching::priority);
 }

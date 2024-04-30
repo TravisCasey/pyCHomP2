@@ -15,11 +15,12 @@
 
 /// Homology
 inline std::shared_ptr<Complex> Homology(std::shared_ptr<Complex> base,
+                                         Integer match_dim = -1,
                                          bool verbose = false) {
   std::shared_ptr<Complex> next = base;
   do {
     base = next;
-    next.reset(new MorseComplex(base));
+    next.reset(new MorseComplex(base, match_dim));
   } while (next->size() != base->size());
   return base;
 }
@@ -31,5 +32,6 @@ inline std::shared_ptr<Complex> Homology(std::shared_ptr<Complex> base,
 namespace py = pybind11;
 
 inline void HomologyBinding(py::module &m) {
-  m.def("Homology", &Homology, py::arg("base"), py::arg("verbose") = false);
+  m.def("Homology", &Homology, py::arg("base"), py::arg("match_dim") = -1,
+        py::arg("verbose") = false);
 }

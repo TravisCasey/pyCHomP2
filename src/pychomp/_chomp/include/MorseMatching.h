@@ -33,12 +33,12 @@ class MorseMatching {
 
   /// compute_matching
   static std::shared_ptr<MorseMatching> compute_matching(
-      std::shared_ptr<Complex> complex, bool verbose);
+      std::shared_ptr<Complex> complex, Integer match_dim, bool verbose);
 
   /// compute_matching
   static std::shared_ptr<MorseMatching> compute_matching(
-      std::shared_ptr<GradedComplex> graded_complex, bool truncate,
-      Integer max_grade, bool verbose);
+      std::shared_ptr<GradedComplex> graded_complex, Integer match_dim,
+      bool truncate, Integer max_grade, bool verbose);
 
  protected:
   BeginType begin_;

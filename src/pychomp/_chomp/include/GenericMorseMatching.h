@@ -23,18 +23,43 @@ class GenericMorseMatching : public MorseMatching {
   ///   Delegating constructor for non-graded complex
   ///   Assigns trivial grading (all 0)
   GenericMorseMatching(std::shared_ptr<Complex> complex_ptr,
-                       bool verbose = false)
+                       Integer match_dim = -1, bool verbose = false)
       : GenericMorseMatching(std::make_shared<GradedComplex>(
                                  complex_ptr, [](Integer i) { return 0; }),
-                             verbose) {}
+                             match_dim, false, 0, verbose) {}
 
   /// GenericMorseMatching
+  ///   Computes Morse matching based on the mate algorithm.
+  ///   Setting `truncate` flag stops matching on cells with grade exceeding
+  ///   `max_grade`.
+  ///   Setting match_dim stops matching at specified dimension; homology up to
+  ///   dimension match_dim - 1 will be correct. Default value -1 uses the full
+  ///   complex.
+
+  // TODO change complex ptr behavior to match that of CubicalMorseMatching
+  // TODO current implementation matches down K -> Q, which prevents allowing
+  //   cells of match_dim match with cells of match_dim + 1 without having to
+  //   process those cells. Switching this should allow for that improvement;
+  //   However, this does not matter if it is run through CubicalMorseMatching
+  //   first as the higher cells are removed anyway.
   GenericMorseMatching(std::shared_ptr<GradedComplex> graded_complex_ptr,
-                       bool truncate = false, Integer max_grade = 0,
-                       bool verbose = false) {
+                       Integer match_dim = -1, bool truncate = false,
+                       Integer max_grade = 0, bool verbose = false) {
     GradedComplex const& graded_complex = *graded_complex_ptr;
     Complex const& complex = *graded_complex.complex();
-    Integer N = complex.size();
+
+    // If match_dim is invalid (also default value of -1), set D to
+    // dimension of the complex instead.
+    Integer D = (match_dim > 0 && match_dim <= complex.dimension())
+                    ? match_dim
+                    : complex.dimension();
+
+    // N is the number of cells of dimension D and below
+    // Cells >= top_begin are of top dimenstion w.r.t. D,
+    // and should not be matched up.
+    Range top_range = complex(D);
+    Integer N = *(top_range.end());
+    Integer top_begin = *(top_range.begin());
 
     if (verbose) {
       std::cout << "Generic Morse Matching on " << N << " cells.";
@@ -50,9 +75,9 @@ class GenericMorseMatching : public MorseMatching {
 
     auto bd = [&](Integer x) {
       Chain result;
-      auto x_val = graded_complex.value(x);
-      for (auto y : complex.boundary({x})) {
-        auto y_val = graded_complex.value(y);
+      Integer x_val = graded_complex.value(x);
+      for (Integer y : complex.boundary({x})) {
+        Integer y_val = graded_complex.value(y);
         if (y_val > x_val) {
           throw std::logic_error("graded_complex closure property failed.");
         }
@@ -63,8 +88,11 @@ class GenericMorseMatching : public MorseMatching {
 
     auto cbd = [&](Integer x) {
       Chain result;
-      auto x_val = graded_complex.value(x);
-      for (auto y : complex.coboundary({x})) {
+      // Compute coboundary only up to dimension D
+      if (x >= top_begin) return result;
+
+      Integer x_val = graded_complex.value(x);
+      for (Integer y : complex.coboundary({x})) {
         if (x_val == graded_complex.value(y)) result += y;
       }
       return result;
@@ -78,7 +106,7 @@ class GenericMorseMatching : public MorseMatching {
     }
 
     Integer M = 0;
-    for (auto x : complex) {
+    for (Integer x = 0; x < N; ++x) {
       if (not truncate || graded_complex.value(x) <= max_grade) {
         ++M;
         boundary_count[x] = bd(x).size();
@@ -95,10 +123,10 @@ class GenericMorseMatching : public MorseMatching {
     }
 
     auto process = [&](Integer y) {
-      priority_[y] = graded_complex.value(y) * complex.size() + num_processed++;
+      priority_[y] = graded_complex.value(y) * M + num_processed++;
       coreducible.erase(y);
       ace_candidates.erase(y);
-      for (auto x : cbd(y)) {
+      for (Integer x : cbd(y)) {
         boundary_count[x] -= 1;
         switch (boundary_count[x]) {
           case 0:
@@ -119,17 +147,16 @@ class GenericMorseMatching : public MorseMatching {
       num_processed = 0;
     }
 
+    Integer A, K, Q;
     while (num_processed < M) {
       if (not coreducible.empty()) {
-        Integer K, Q;
-
         // Extract K
         auto it = coreducible.begin();
         K = *it;
         coreducible.erase(it);
 
         // Find mate Q
-        for (auto x : bd(K))
+        for (Integer x : bd(K))
           if (mate_[x] == -1) {
             Q = x;
             break;
@@ -140,7 +167,7 @@ class GenericMorseMatching : public MorseMatching {
         process(Q);
         process(K);
       } else {
-        Integer A;
+        // Extract A
         auto it = ace_candidates.begin();
         A = *it;
         ace_candidates.erase(it);
@@ -158,12 +185,11 @@ class GenericMorseMatching : public MorseMatching {
     }
 
     // Compute critical cells
-    Integer D = complex.dimension();
     begin_.resize(D + 2);
     Integer idx = 0;
     for (Integer d = 0; d <= D; ++d) {
       begin_[d] = idx;
-      for (auto v : complex(d)) {
+      for (Integer v : complex(d)) {
         if (not truncate || graded_complex.value(v) <= max_grade) {
           if (mate(v) == v) {
             reindex_.push_back({v, idx});
@@ -206,11 +232,13 @@ namespace py = pybind11;
 inline void GenericMorseMatchingBinding(py::module& m) {
   py::class_<GenericMorseMatching, std::shared_ptr<GenericMorseMatching>>(
       m, "GenericMorseMatching")
-      .def(py::init<std::shared_ptr<Complex>, bool>(), py::arg("base"),
+      .def(py::init<std::shared_ptr<Complex>, Integer, bool>(), py::arg("base"),
+           py::arg("match_dim") = -1, py::arg("verbose") = false)
+      .def(py::init<std::shared_ptr<GradedComplex>, Integer, bool, Integer,
+                    bool>(),
+           py::arg("base"), py::arg("match_dim") = -1,
+           py::arg("truncate") = false, py::arg("max_grade") = 0,
            py::arg("verbose") = false)
-      .def(py::init<std::shared_ptr<GradedComplex>, bool, Integer, bool>(),
-           py::arg("base"), py::arg("truncate") = false,
-           py::arg("max_grade") = 0, py::arg("verbose") = false)
       .def("mate", &GenericMorseMatching::mate)
       .def("priority", &GenericMorseMatching::priority);
 }
