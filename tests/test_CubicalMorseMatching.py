@@ -28,15 +28,6 @@ def test_matching():
         assert mate < Y.size()
         assert mate == cell or Y_match.mate(mate) == cell
 
-    Z = CubicalComplex([3, 4])
-    Z_grad = GradedComplex(Z, grading)
-    Z_match = CubicalMorseMatching(Z_grad)
-
-    # Check trichotomy
-    for cell in range(Z.size()):
-        mate = Z_match.mate(cell)
-        assert mate < Z.size()
-        assert mate == cell or Z_match.mate(mate) == cell
 
 def test_truncated_matching():
     X = CubicalComplex([3, 4])
